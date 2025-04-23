@@ -1,0 +1,87 @@
+import sqlite3
+import pandas as pd
+import matplotlib.pyplot as plt
+
+# Load your database
+conn = sqlite3.connect("final_project.db")
+df = pd.read_sql_query("SELECT * FROM WeatherCrashCombined", conn)
+conn.close()
+
+# Preprocessing
+df["weather_type"] = pd.cut(df["precipitation"], bins=[-0.1, 0.01, 2, 10, 100],
+                            labels=["Dry", "Light Rain", "Moderate Rain", "Heavy Rain"])
+df["is_rainy"] = df["precipitation"] > 0.1
+df["date"] = pd.to_datetime(df["date"])
+
+# Rainy vs. Dry crash average
+df["is_rainy"] = df["precipitation"] > 0.1
+daily_counts = df.groupby(["is_rainy", "date"]).size().reset_index(name="crash_count")
+avg_by_rain = daily_counts.groupby("is_rainy")["crash_count"].mean()
+avg_by_rain.index = ["Dry", "Rainy"]
+
+avg_by_rain.plot(kind="bar", color=["skyblue", "gray"])
+plt.title("Average Crashes Per Day: Rainy vs Dry")
+plt.ylabel("Avg Crashes")
+plt.xticks(rotation=0)
+plt.tight_layout()
+plt.show()
+
+
+
+
+df["weather_type"] = pd.cut(df["precipitation"], bins=[-0.1, 0.01, 2, 10, 100],
+                            labels=["Dry", "Light Rain", "Moderate Rain", "Heavy Rain"])
+weather_daily = df.groupby(["weather_type", "date"]).size().reset_index(name="crash_count")
+avg_by_weather = weather_daily.groupby("weather_type")["crash_count"].mean()
+
+avg_by_weather.plot(kind="bar", color="orchid")
+plt.title("Avg Crashes per Day by Weather Condition")
+plt.ylabel("Avg Crashes")
+plt.xticks(rotation=0)
+plt.tight_layout()
+plt.show()
+
+
+city_daily = df.groupby(["city", "date"]).size().reset_index(name="crash_count")
+avg_city = city_daily.groupby("city")["crash_count"].mean()
+
+avg_city.plot(kind="bar", color="mediumseagreen")
+plt.title("Avg Crashes Per Day by City")
+plt.ylabel("Avg Crashes")
+plt.xticks(rotation=0)
+plt.tight_layout()
+plt.show()
+
+
+df["date"] = pd.to_datetime(df["date"])
+df["is_rainy"] = df["precipitation"] > 0.1
+df["is_windy"] = df["windspeed"] > 15  # Adjust threshold if needed
+
+# Create combo weather label
+def weather_combo(row):
+    if row["is_rainy"] and row["is_windy"]:
+        return "Rainy + Windy"
+    elif row["is_rainy"]:
+        return "Rainy Only"
+    elif row["is_windy"]:
+        return "Windy Only"
+    else:
+        return "Dry + Calm"
+
+df["weather_combo"] = df.apply(weather_combo, axis=1)
+
+# Count daily crashes by combo
+combo_daily = df.groupby(["weather_combo", "date"]).size().reset_index(name="crash_count")
+avg_combo = combo_daily.groupby("weather_combo")["crash_count"].mean()
+
+# Keep consistent order
+avg_combo = avg_combo.reindex(["Dry + Calm", "Windy Only", "Rainy Only", "Rainy + Windy"])
+
+# Plot
+plt.figure(figsize=(7, 5))
+avg_combo.plot(kind="bar", color=["skyblue", "orange", "purple", "slategray"])
+plt.title("Avg Crashes per Day by Wind & Rain Conditions")
+plt.ylabel("Avg Crashes")
+plt.xticks(rotation=0)
+plt.tight_layout()
+plt.show()

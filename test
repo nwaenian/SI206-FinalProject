@@ -1,0 +1,7 @@
+import sqlite3
+import pandas as pd
+
+conn = sqlite3.connect("final_project.db")
+df = pd.read_sql_query("SELECT DISTINCT city, date FROM WeatherCrashCombined ORDER BY city, date", conn)
+print(df)
+conn.close()

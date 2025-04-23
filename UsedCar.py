@@ -3,20 +3,15 @@ import requests
 from datetime import date, timedelta
 
 DB_NAME = "final_project.db"
-
-# Cities you care about
 CITIES = [
-    {"city": "Detroit", "state": "Michigan"},
-    {"city": "Miami", "state": "Florida"},
-    {"city": "Los Angeles", "state": "California"},
-    {"city": "Charleston", "state": "South Carolina"}
+    {"city": "Austin", "state": "Texas"},
+    {"city": "Chicago", "state": "Illinois"}
 ]
 
-# 7-day range
-END_DATE = date.today() - timedelta(days=1)
-START_DATE = END_DATE - timedelta(days=7)
+# Total days of data you want
+TOTAL_DAYS = 100
+DAYS_PER_CALL = 25
 
-# === STEP 1: Create the Weather Table ===
 def create_table():
     conn = sqlite3.connect(DB_NAME)
     cur = conn.cursor()
@@ -34,7 +29,6 @@ def create_table():
     conn.commit()
     conn.close()
 
-# === STEP 2: Get Lat/Lon from Geocoding API ===
 def get_lat_lon(city_name):
     url = f"https://geocoding-api.open-meteo.com/v1/search?name={city_name}&count=1&language=en&format=json"
     response = requests.get(url)
@@ -43,14 +37,13 @@ def get_lat_lon(city_name):
     result = geo["results"][0]
     return result["latitude"], result["longitude"]
 
-# === STEP 3: Get Weather Data ===
-def fetch_weather(lat, lon):
+def fetch_weather(lat, lon, start_date, end_date):
     url = "https://archive-api.open-meteo.com/v1/archive"
     params = {
         "latitude": lat,
         "longitude": lon,
-        "start_date": START_DATE.isoformat(),
-        "end_date": END_DATE.isoformat(),
+        "start_date": start_date.isoformat(),
+        "end_date": end_date.isoformat(),
         "daily": "temperature_2m_max,precipitation_sum,windspeed_10m_max",
         "timezone": "America/New_York"
     }
@@ -58,7 +51,6 @@ def fetch_weather(lat, lon):
     response.raise_for_status()
     return response.json()
 
-# === STEP 4: Store Data ===
 def insert_weather(city, state, data):
     conn = sqlite3.connect(DB_NAME)
     cur = conn.cursor()
@@ -76,24 +68,34 @@ def insert_weather(city, state, data):
     conn.commit()
     conn.close()
 
-# === MAIN ===
 def main():
     create_table()
+    today = date.today() - timedelta(days=1)
+
     for entry in CITIES:
         city = entry["city"]
         state = entry["state"]
-        print(f"🌤 Fetching weather for {city}, {state}...")
-
+        print(f"\n🌤 Fetching 100-day weather history for {city}, {state}...")
+        
         try:
             lat, lon = get_lat_lon(city)
-            data = fetch_weather(lat, lon)
-            insert_weather(city, state, data)
-            print(f"✅ Inserted weather data for {city}")
+
+            # Fetch 100 days in chunks of 25 days
+            for i in range(0, TOTAL_DAYS, DAYS_PER_CALL):
+                end_date = today - timedelta(days=i)
+                start_date = end_date - timedelta(days=DAYS_PER_CALL - 1)
+                print(f"   📅 Requesting: {start_date} to {end_date}")
+                
+                data = fetch_weather(lat, lon, start_date, end_date)
+                insert_weather(city, state, data)
+
+            print(f"✅ Done inserting 100 weather entries for {city}")
         except Exception as e:
             print(f"❌ Failed for {city}, {state}: {e}")
 
 if __name__ == "__main__":
     main()
+
 
 
 
