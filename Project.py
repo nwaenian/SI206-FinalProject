@@ -12,3 +12,4 @@ carquery_data = json.loads(carquery_response.text)['Makes']
 
 vpic_makes = [d['Make_Name'] for d in crash_data]
 carquery_makes = [d['make_display'] for d in carquery_data]
+
